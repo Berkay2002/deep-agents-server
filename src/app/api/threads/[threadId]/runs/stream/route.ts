@@ -78,6 +78,8 @@ const formatMessages = (messages: MessageInput[]): BaseMessage[] => {
   });
 };
 
+import { v4 as uuidv4 } from "uuid";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ threadId: string }> }
@@ -94,8 +96,14 @@ export async function POST(
     stream_mode = ["values", "messages", "updates", "debug"],
   }: StreamInput = body;
 
+  const runId = uuidv4();
+
   const langGraphConfig = {
-    configurable: { thread_id: threadId, ...(runConfig?.configurable || {}) },
+    configurable: { 
+      thread_id: threadId, 
+      run_id: runId,
+      ...(runConfig?.configurable || {}) 
+    },
     recursionLimit: runConfig?.recursion_limit ?? 50,
   };
 
@@ -180,6 +188,7 @@ export async function POST(
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
+        "Content-Location": `/threads/${threadId}/runs/${runId}`,
       },
     });
   } catch (error) {
