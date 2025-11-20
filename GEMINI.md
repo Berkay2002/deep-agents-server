@@ -21,44 +21,51 @@ The application is built with **Next.js 16** (App Router) and utilizes **LangGra
 - **Styling:** Tailwind CSS v4.
 
 ## Core Architecture: Deep Research Module
-The core agent logic has moved to `src/deep-research/`.
+The core agent logic is centralized in `src/deep-research/`.
 
 ### 1. Deep Research Agent (`src/deep-research/deep-research-agent.ts`)
-The primary agent designed for "Recursive Research".
-- **Pattern:** "Fetcher" (Search -> Scrape -> Read -> Follow).
+The primary agent configuration.
 - **Backend:** `CompositeBackend`.
   - `/`: **StateBackend** (Temporary scratchpad).
   - `/memories/`: **StoreBackend** (Long-term knowledge base).
-- **Tools:**
-  - `web_search`: Discovery (Google/WebSearchAPI).
-  - `visit_page`: Reading/Scraping specific URLs.
-  - `exa_search`: Deep semantic/neural search.
-  - `exa_find_similar`: Expanding from a source.
-  - `exa_get_contents`: Batch content retrieval.
+- **Model Config:** Gemini 3 Pro Preview (Temperature: 1).
+- **Dependencies:** Imports tools and system prompt from `./tools`.
 
-### 2. Internal Variants
+### 2. Tools & Prompts (`src/deep-research/tools.ts`)
+Contains the definitions for all tools and the agent's system prompt.
+- **Tools:** `webSearchTool`, `webScraperTool`, `exaSearchTool`, `exaFindSimilarTool`, `exaGetContentsTool`.
+- **System Prompt:** Defines the "Fetcher" pattern, tool selection guide, and memory usage instructions.
+
+### 3. Internal Variants
 - `internal-state.ts`: Agent using only temporary State storage.
 - `internal-store.ts`: Agent using only persistent Store storage.
 - `internal-composite.ts`: Simplified composite backend example.
 
-### 3. LangGraph Config (`src/deep-research/langgraph.json`)
+### 4. LangGraph Config (`src/deep-research/langgraph.json`)
 Defines the available graphs: `agent` (main), `composite`, `state`, `store`.
 
 ## API Endpoints (`src/app/api/`)
+
 - **`POST /api/threads`**
   - Creates a new conversation thread.
 
 - **`POST /api/threads/[threadId]/runs/stream`**
   - Streams the agent's execution events (Server-Sent Events).
-  - Uses the `Deep Research Agent` (`src/deep-research/deep-research-agent.ts`).
+  - Connects to the `Deep Research Agent`.
 
 - **`POST /api/threads/[threadId]/state`**
   - Updates thread state (shim implementation).
 
+- **`POST /api/threads/search`**
+  - **Stub Implementation:** Returns an empty list of threads.
+  - *Note:* `MemorySaver` (current persistence) does not support listing threads. A database-backed store (e.g., Postgres) would be needed for full functionality.
+
 ## Project Structure
-- `src/deep-research/`: **NEW** Core agent logic and configuration.
+- `src/deep-research/`: Core agent logic.
+    - `deep-research-agent.ts`: Main agent entry point.
+    - `tools.ts`: Tool definitions and system prompt.
 - `src/app/`: Next.js App Router.
-    - `api/`: API routes (needs repair).
+    - `api/`: API routes.
 - `public/`: Static assets.
 
 ## Environment Variables

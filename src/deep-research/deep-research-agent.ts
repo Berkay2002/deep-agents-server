@@ -14,7 +14,7 @@ import { tools, systemPrompt } from "./tools";
 export const agent = createDeepAgent({
   model: new ChatGoogleGenerativeAI({
     model: "gemini-3-pro-preview",
-    temperature: 0,
+    temperature: 1,
   }),
   tools,
   systemPrompt,
