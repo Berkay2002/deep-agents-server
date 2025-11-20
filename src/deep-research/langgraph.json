@@ -1,0 +1,10 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./deep-research-agent.ts:agent",
+    "composite": "./internal-composite.ts:agent",
+    "state": "./internal-state.ts:agent",
+    "store": "./internal-store.ts:agent"
+  },
+  "env": ".env"
+}

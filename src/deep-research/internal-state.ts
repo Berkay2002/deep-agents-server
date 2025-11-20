@@ -1,11 +1,15 @@
+import "dotenv/config";
+import { z } from "zod";
+import { tool } from "@langchain/core/tools";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { createDeepAgent } from "deepagents";
 import { MemorySaver } from "@langchain/langgraph";
 import { ExaRetriever } from "@langchain/exa";
 import Exa from "exa-js";
 import { Document } from "@langchain/core/documents";
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import {
+  createDeepAgent,
+  StateBackend,
+} from "deepagents";
 
 // WebSearchAPI Tool
 const webSearchTool = tool(
@@ -101,40 +105,19 @@ const exaSearchTool = tool(
   }
 );
 
-// Define the Deep Agent
-export const createAgent = () => {
-  const model = new ChatGoogleGenerativeAI({
+const systemPrompt = `You are a research assistant using State-based storage.
+
+All files you create are stored in the conversation state. They will persist during this conversation thread but will be isolated from other threads.
+
+Use the filesystem to organize your notes and findings.`;
+
+export const agent = createDeepAgent({
+  model: new ChatGoogleGenerativeAI({
     model: "gemini-3-pro-preview",
-    temperature: 0, // Using a lower temperature for more deterministic behavior
-  });
-
-  const checkpointer = new MemorySaver();
-
-  const systemPrompt = `You are a highly capable AI assistant powered by Gemini 3 Pro Preview. Your primary goal is to assist users by planning tasks, utilizing available tools, and delegating to subagents when appropriate.
-
-<instructions>
-1. **Plan:** Always start by formulating a clear plan using the \`write_todos\` tool if the task is complex. Break down complex requests into smaller, manageable steps.
-2. **Execute:** Use the provided tools to gather information and perform actions.
-   - Use \`web_search\` for general queries, current events, and broad information gathering.
-   - Use \`exa_search\` when you need to find specific documents, research papers, or perform deep semantic searches for related content.
-   - Use file system tools (\`ls\`, \`read_file\`, \`write_file\`, \`edit_file\`) to manage your workspace and store results.
-3. **Delegate:** For multi-step tasks that require isolated context or specialized capabilities, consider delegating to a general-purpose subagent using the \`task\` tool.
-4. **Respond:** Provide concise and accurate responses based on the information gathered or actions performed.
-</instructions>
-
-<constraints>
-- Be proactive in using tools to solve problems.
-- Always be mindful of the conversation history and leverage it when relevant.
-- Ensure all tool arguments strictly adhere to their defined schemas.
-</constraints>
-`;
-
-  const agent = createDeepAgent({
-    model: model,
-    tools: [webSearchTool, exaSearchTool],
-    systemPrompt: systemPrompt,
-    checkpointer: checkpointer,
-  });
-
-  return agent;
-};
+    temperature: 0,
+  }),
+  tools: [webSearchTool, exaSearchTool],
+  systemPrompt,
+  checkpointer: new MemorySaver(),
+  backend: (config) => new StateBackend(config),
+});
