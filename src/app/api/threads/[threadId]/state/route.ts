@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAgent } from "@/agent/graph";
+import { agent } from "@/deep-research/deep-research-agent";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ threadId: string }> }
 ) {
   const { threadId } = await params;
-  const agent = createAgent();
   const langGraphConfig = { configurable: { thread_id: threadId } };
   const { values } = await req.json();
 

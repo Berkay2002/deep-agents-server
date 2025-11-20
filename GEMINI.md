@@ -1,89 +1,67 @@
 # Project Context: deep-agents-server
 
 ## Overview
-`deep-agents-server` is the backend runtime for "Deep Agents", a system designed to host advanced AI agents capable of planning, execution, and delegation. It acts as the server-side component that manages agent threads, executes LangGraph-based workflows, and interfaces with external APIs (LLMs, Search).
+`deep-agents-server` is the backend runtime for "Deep Agents", specifically tailored for **Deep Research**. It hosts advanced AI agents capable of planning, recursive research, and dual-memory management (temporary vs. persistent).
 
-The application is built with **Next.js 16** (App Router) and exposes a RESTful API with streaming capabilities (Server-Sent Events) for real-time agent interaction.
+The application is built with **Next.js 16** (App Router) and utilizes **LangGraph** for agent orchestration.
 
 ## Tech Stack
 - **Framework:** Next.js 16.0.3 (App Router)
 - **Language:** TypeScript
 - **Agent Framework:**
-  - **LangGraph:** For stateful, multi-actor agent orchestration (`@langchain/langgraph`).
-  - **LangChain:** For tool interfaces and model abstractions (`@langchain/core`).
+  - **LangGraph:** Workflow orchestration.
   - **DeepAgents:** Custom agent wrapper (`deepagents`).
 - **AI Models:** Google Gemini 3 Pro Preview (via `@langchain/google-genai`).
-- **Search Tools:**
-  - **WebSearchAPI:** For general web queries (`web_search`).
-  - **Exa:** For semantic/neural search (`exa_search`).
-- **Persistence:** In-memory checkpointing (`MemorySaver`).
+- **Search & Research Tools:**
+  - **WebSearchAPI:** General search (`web_search`) and scraping (`visit_page`).
+  - **Exa:** Neural search (`exa_search`), similarity finding (`exa_find_similar`), and content retrieval (`exa_get_contents`).
+- **Persistence:**
+  - **StateBackend:** Temporary, thread-local storage (root directory `/`).
+  - **StoreBackend:** Persistent, cross-thread storage (`/memories/` directory).
 - **Styling:** Tailwind CSS v4.
-- **Linting:** ESLint 9.
 
-## Core Architecture
+## Core Architecture: Deep Research Module
+The core agent logic has moved to `src/deep-research/`.
 
-### 1. Agent Runtime (`src/agent/graph.ts`)
-The core agent is defined using **LangGraph**. It is configured as a "Deep Agent" that:
-- **Plans:** Uses `write_todos` (conceptually) to break down tasks.
-- **Executes:** Uses `web_search` and `exa_search` tools.
-- **Delegates:** Can offload sub-tasks.
-- **Persists:** Uses `MemorySaver` to maintain state across turns in a thread.
+### 1. Deep Research Agent (`src/deep-research/deep-research-agent.ts`)
+The primary agent designed for "Recursive Research".
+- **Pattern:** "Fetcher" (Search -> Scrape -> Read -> Follow).
+- **Backend:** `CompositeBackend`.
+  - `/`: **StateBackend** (Temporary scratchpad).
+  - `/memories/`: **StoreBackend** (Long-term knowledge base).
+- **Tools:**
+  - `web_search`: Discovery (Google/WebSearchAPI).
+  - `visit_page`: Reading/Scraping specific URLs.
+  - `exa_search`: Deep semantic/neural search.
+  - `exa_find_similar`: Expanding from a source.
+  - `exa_get_contents`: Batch content retrieval.
 
-### 2. API Endpoints (`src/app/api/`)
-The server exposes the following endpoints:
+### 2. Internal Variants
+- `internal-state.ts`: Agent using only temporary State storage.
+- `internal-store.ts`: Agent using only persistent Store storage.
+- `internal-composite.ts`: Simplified composite backend example.
 
+### 3. LangGraph Config (`src/deep-research/langgraph.json`)
+Defines the available graphs: `agent` (main), `composite`, `state`, `store`.
+
+## API Endpoints (`src/app/api/`)
 - **`POST /api/threads`**
   - Creates a new conversation thread.
-  - **Response:** `{ "thread_id": "uuid..." }`
 
 - **`POST /api/threads/[threadId]/runs/stream`**
-  - The main interaction endpoint. Accepts messages or commands and streams the agent's execution events.
-  - **Input:** `{ input: { messages: [...] }, command: { ... }, config: { ... } }`
-  - **Output:** Server-Sent Events (SSE) stream containing `data`, `messages`, `updates`, etc.
+  - Streams the agent's execution events (Server-Sent Events).
+  - Uses the `Deep Research Agent` (`src/deep-research/deep-research-agent.ts`).
 
 - **`POST /api/threads/[threadId]/state`**
-  - Updates the state of a thread (currently a shim implementation that merges values without persistence in `MemorySaver`).
-  - **Input:** `{ values: { ... } }`
-  - **Output:** `{ values: { ... }, thread_id: "..." }`
-
-## Key Commands
-
-- **Development Server:**
-  ```bash
-  npm run dev
-  ```
-  Starts the app at `http://localhost:3000`.
-
-- **Build for Production:**
-  ```bash
-  npm run build
-  ```
-
-- **Start Production Server:**
-  ```bash
-  npm run start
-  ```
-
-- **Lint Code:**
-  ```bash
-  npm run lint
-  ```
+  - Updates thread state (shim implementation).
 
 ## Project Structure
-- `src/agent/`
-    - `graph.ts`: Defines the LangGraph agent, tools (WebSearch, Exa), and system prompt.
-- `src/app/`
-    - `api/`: API route handlers.
-        - `threads/`: Thread management and run streaming.
-        - `search/`: Search utility.
-    - `layout.tsx`: Root layout.
-    - `page.tsx`: Main entry page (likely a landing or status page).
-    - `globals.css`: Global styles.
+- `src/deep-research/`: **NEW** Core agent logic and configuration.
+- `src/app/`: Next.js App Router.
+    - `api/`: API routes (needs repair).
 - `public/`: Static assets.
-- `next.config.ts`: Next.js configuration.
 
 ## Environment Variables
-The application relies on several key API keys (ensure these are set in `.env.local` or the environment):
-- `GOOGLE_API_KEY`: For Gemini models.
-- `WEBSEARCHAPI_KEY`: For general web search.
-- `EXA_API_KEY`: For Exa semantic search.
+- `GOOGLE_API_KEY`: Gemini models.
+- `WEBSEARCHAPI_KEY`: Web search and scraping.
+- `EXA_API_KEY`: Exa semantic search.

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAgent } from "@/agent/graph";
+import { agent } from "@/deep-research/deep-research-agent";
 import {
   AIMessage,
   BaseMessage,
@@ -94,7 +94,6 @@ export async function POST(
     stream_mode = ["values", "messages", "updates", "debug"],
   }: StreamInput = body;
 
-  const agent = createAgent();
   const langGraphConfig = {
     configurable: { thread_id: threadId, ...(runConfig?.configurable || {}) },
     recursionLimit: runConfig?.recursion_limit ?? 50,

@@ -1,123 +1,48 @@
 import "dotenv/config";
-import { z } from "zod";
-import { tool } from "@langchain/core/tools";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { MemorySaver } from "@langchain/langgraph";
-import { ExaRetriever } from "@langchain/exa";
-import Exa from "exa-js";
-import { Document } from "@langchain/core/documents";
-import {
-  createDeepAgent,
-  StateBackend,
-} from "deepagents";
+import { HumanMessage } from "@langchain/core/messages";
 
-// WebSearchAPI Tool
-const webSearchTool = tool(
-  async ({ query, maxResults = 5 }: { query: string; maxResults?: number }) => {
-    const apiKey = process.env.WEBSEARCHAPI_KEY;
-    if (!apiKey) {
-      return "Error: WEBSEARCHAPI_KEY is not set.";
-    }
+import { createDeepAgent, StateBackend } from "deepagents";
 
-    try {
-      const response = await fetch("https://api.websearchapi.ai/ai-search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          query,
-          maxResults,
-          includeContent: true,
-        }),
-      });
+import { tools } from "./tools";
 
-      if (!response.ok) {
-        return `Error: WebSearchAPI request failed with status ${response.status}`;
-      }
+// Modified system prompt for ephemeral-only agent
+const ephemeralSystemPrompt = `You are a research assistant.
 
-      const data = await response.json();
-      return JSON.stringify(data);
-    } catch (error) {
-      return `Error performing web search: ${(error as Error).message}`;
-    }
-  },
-  {
-    name: "web_search",
-    description:
-      "Search the web for general queries, news, and recent information. Returns comprehensive results with content.",
-    schema: z.object({
-      query: z.string().describe("The search query"),
-      maxResults:
-        z
-          .number()
-          .optional()
-          .default(5)
-          .describe("Maximum number of results to return"),
-    }),
-  }
-);
+Your files are stored in memory and will be lost when the conversation ends.
 
-// Exa Search Tool (Semantic Search)
-const exaSearchTool = tool(
-  async ({ query, numResults = 3 }: { query: string; numResults?: number }) => {
-    const apiKey = process.env.EXA_API_KEY;
-    if (!apiKey) {
-      return "Error: EXA_API_KEY is not set.";
-    }
+## Workflow
 
-    try {
-      const retriever = new ExaRetriever({
-        client: new Exa(apiKey),
-        searchArgs: {
-          numResults,
-          highlights: true,
-        },
-      });
+1. Write your research question to \`research_question.txt\`
+2. Gather information using the web_search or exa_search tools
+3. Write your findings to \`research_notes.txt\` as you discover them
+4. Once you have enough information, write a final summary to \`summary.md
 
-      const docs = await retriever.invoke(query);
-      return JSON.stringify(
-        docs.map((doc: Document) => ({
-          title: doc.metadata.title,
-          url: doc.metadata.url,
-          highlights: doc.metadata.highlights,
-          content: doc.pageContent,
-        }))
-      );
-    } catch (error) {
-      return `Error performing Exa search: ${(error as Error).message}`;
-    }
-  },
-  {
-    name: "exa_search",
-    description:
-      "Perform a semantic search to find specific documents, research papers, or content similar to the query. Good for deep research.",
-    schema: z.object({
-      query: z.string().describe("The semantic search query"),
-      numResults:
-        z
-          .number()
-          .optional()
-          .default(3)
-          .describe("Number of results to retrieve"),
-    }),
-  }
-);
-
-const systemPrompt = `You are a research assistant using State-based storage.
-
-All files you create are stored in the conversation state. They will persist during this conversation thread but will be isolated from other threads.
-
-Use the filesystem to organize your notes and findings.`;
+`;
 
 export const agent = createDeepAgent({
   model: new ChatGoogleGenerativeAI({
     model: "gemini-3-pro-preview",
     temperature: 0,
   }),
-  tools: [webSearchTool, exaSearchTool],
-  systemPrompt,
-  checkpointer: new MemorySaver(),
+  tools,
+  systemPrompt: ephemeralSystemPrompt,
   backend: (config) => new StateBackend(config),
 });
+
+async function main() {
+  console.log("Starting ephemeral research agent...");
+  
+  await agent.invoke(
+    {
+      messages: [
+        new HumanMessage("Research the latest trends in AI agents for 2025"),
+      ],
+    },
+    { recursionLimit: 50 },
+  );
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
