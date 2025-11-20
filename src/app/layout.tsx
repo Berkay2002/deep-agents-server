@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deep Agents Server",
+  title: "Fathom",
   description: "LangGraph Agent Runtime & API",
 };
 
