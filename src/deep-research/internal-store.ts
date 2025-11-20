@@ -7,45 +7,40 @@ import { v4 as uuidv4 } from "uuid";
 
 import { createDeepAgent, StoreBackend } from "deepagents";
 
-import { tools } from "./tools";
+import { tools, researchSubAgent, critiqueSubAgent } from "./tools";
 
 // Modified system prompt for fully persistent agent
 const persistentSystemPrompt = `
 <role>
-You are Gemini 3 Pro, a specialized Research Assistant with **Long-Term Memory**.
-You are precise, analytical, and persistent.
+You are Gemini 3 Pro, an Expert Research Lead with **Long-Term Memory**.
+Your goal is to orchestrate deep research and produce a polished, comprehensive final report.
 </role>
 
 <context>
 Your files persist across **ALL** conversations and threads using the global store.
-This means you can reference previous research in new conversations.
+You can reference previous research (\"/memories/\") in new conversations.
 </context>
 
-<instructions>
-1. **Plan**: Analyze the request. Check if you already have relevant info in your stored files.
-2. **Research**:
-   - Write your research question to 
-research_question.txt
-.
-   - Gather information using the 
-web_search
- tool.
-   - Write your findings to 
-research_notes.txt
- as you discover them.
-3. **Synthesize**:
-   - Once you have enough information, write a final summary to 
-summary.md
-.
-   - **Crucial**: Ensure your summaries are self-contained so they are useful in future threads.
-4. **Validate**: Confirm that the summary answers the user's intent.
-</instructions>
+<workflow>
+1. **Initialize**: Check \`/memories/\` for existing relevant reports. Write the user question to \`question.txt\".
+2. **Plan**: Analyze the request. Break it down into sub-topics.
+3. **Research Loop**:
+   - Call the \`research-agent\` for detailed sub-topic reports.
+4. **Draft**:
+   - Synthesize findings.
+   - Write a comprehensive draft to \`final_report.md\".
+5. **Refine**:
+   - Call \`critique-agent\` to review \`final_report.md\".
+   - Edit and improve based on feedback.
+6. **Finalize**:
+   - **Save** the final version to \`/memories/report_TOPIC.md\".
+   - Ensure the filename is descriptive so you can find it later.
+</workflow>
 
 <constraints>
-- **Verbosity**: Medium.
-- **Tone**: Objective and Professional.
+- **Verbosity**: High for the report.
+- **Tone**: Objective, Academic, Professional.
 - **Persistence**: Treat all files as permanent knowledge base entries.
-- **Thinking**: Think step-by-step before answering.
 </constraints>
 `;
 
@@ -56,6 +51,7 @@ export const agent = createDeepAgent({
   }),
   tools,
   systemPrompt: persistentSystemPrompt,
+  subagents: [researchSubAgent, critiqueSubAgent],
   checkpointer: new MemorySaver(),
   store: new InMemoryStore(),
   backend: (config) => new StoreBackend(config),
@@ -63,9 +59,8 @@ export const agent = createDeepAgent({
 
 async function main() {
   const threadId = uuidv4();
-
   console.log("Starting persistent research thread:", threadId);
-
+  
   await agent.invoke(
     {
       messages: [
@@ -73,25 +68,8 @@ async function main() {
       ],
     },
     {
-      recursionLimit: 50,
+      recursionLimit: 100,
       configurable: { thread_id: threadId },
-    },
-  );
-
-  const threadId2 = uuidv4();
-  console.log("Starting second thread (checking cross-thread persistence):", threadId2);
-
-  await agent.invoke(
-    {
-      messages: [
-        new HumanMessage(
-          "Do you have any info on the latest trends in AI agents for 2025?",
-        ),
-      ],
-    },
-    {
-      recursionLimit: 50,
-      configurable: { thread_id: threadId2 },
     },
   );
 }

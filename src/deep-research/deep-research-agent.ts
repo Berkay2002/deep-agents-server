@@ -9,7 +9,7 @@ import {
   StoreBackend,
 } from "deepagents";
 
-import { tools, systemPrompt } from "./tools";
+import { tools, systemPrompt, researchSubAgent, critiqueSubAgent } from "./tools";
 
 export const agent = createDeepAgent({
   model: new ChatGoogleGenerativeAI({
@@ -18,6 +18,7 @@ export const agent = createDeepAgent({
   }),
   tools,
   systemPrompt,
+  subagents: [researchSubAgent, critiqueSubAgent],
   checkpointer: new MemorySaver(),
   store: new InMemoryStore(),
   backend: (config) =>

@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { HumanMessage } from "@langchain/core/messages";
 import { MemorySaver } from "@langchain/langgraph";
 import { InMemoryStore } from "@langchain/langgraph-checkpoint";
 import { v4 as uuidv4 } from "uuid";
@@ -12,7 +11,7 @@ import {
   StoreBackend,
 } from "deepagents";
 
-import { tools, systemPrompt } from "./tools";
+import { tools, systemPrompt, researchSubAgent, critiqueSubAgent } from "./tools";
 
 export const agent = createDeepAgent({
   model: new ChatGoogleGenerativeAI({
@@ -21,6 +20,7 @@ export const agent = createDeepAgent({
   }),
   tools,
   systemPrompt,
+  subagents: [researchSubAgent, critiqueSubAgent],
   checkpointer: new MemorySaver(),
   store: new InMemoryStore(),
   backend: (config) =>
@@ -37,32 +37,16 @@ async function main() {
 
   console.log("Starting research thread:", threadId);
   
+  // You might want to increase recursion limit for this complex workflow
   await agent.invoke(
     {
       messages: [
-        new HumanMessage("Research the latest trends in AI agents for 2025"),
+        { role: "user", content: "Research the latest trends in AI agents for 2025 and write a report." },
       ],
     },
     {
-      recursionLimit: 50,
+      recursionLimit: 100, // Increased limit for research -> critique -> refine loop
       configurable: { thread_id: threadId },
-    },
-  );
-
-  const threadId2 = uuidv4();
-  console.log("Starting second thread (checking persistence):", threadId2);
-  
-  await agent.invoke(
-    {
-      messages: [
-        new HumanMessage(
-          "Do you have any info on the latest trends in AI agents for 2025 from the previous chat?",
-        ),
-      ],
-    },
-    {
-      recursionLimit: 50,
-      configurable: { thread_id: threadId2 },
     },
   );
 }
